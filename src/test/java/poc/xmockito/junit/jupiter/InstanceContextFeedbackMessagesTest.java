@@ -26,7 +26,7 @@ public class InstanceContextFeedbackMessagesTest {
     void feedbackMessage_noInjectionCandidateFound() {
         Field subjectField = declaredField("instantiatable");
         assertThatThrownBy(() -> context.instantiate(subjectField))
-            .hasMessage("No injection candidate for Parameter[String value]");
+            .hasMessage("No injection candidate for Parameter[String value] of constructor SinglePublicConstructorInstance(String value)");
     }
 
     @Test
@@ -36,7 +36,11 @@ public class InstanceContextFeedbackMessagesTest {
 
         Field subjectField = declaredField("instantiatable");
         assertThatThrownBy(() -> context.instantiate(subjectField))
-            .hasMessage("No unique candidate for Parameter[String value] available are [someValue, anotherValue]");
+            .hasMessage("%s%s%s".formatted(
+                "No unique candidate for Parameter[String value] of constructor SinglePublicConstructorInstance(String value)",
+                System.lineSeparator(),
+                "available are [someValue, anotherValue]"
+            ));
     }
 
     @Test
@@ -56,7 +60,7 @@ public class InstanceContextFeedbackMessagesTest {
     public record SinglePublicConstructorInstance(String value) {
     }
 
-    class SinglePrivateConstructorInstance {
+    private static class SinglePrivateConstructorInstance {
         private SinglePrivateConstructorInstance(String value) {
         }
     }

@@ -8,6 +8,7 @@ import org.mockito.Mockito;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
 import static poc.xmockito.junit.jupiter.ReflectionUtils.*;
@@ -108,7 +109,7 @@ class InstanceContext {
 
     private Object[] selectedParameters(Constructor<?> selectedConstructor) {
         return stream(selectedConstructor.getParameters())
-            .map(this::resolve)
+            .map(parameter -> resolve(parameter,selectedConstructor))
             .toArray();
     }
 
@@ -144,7 +145,7 @@ class InstanceContext {
         return it -> Arrays.equals(it.getParameterTypes(), annotation.parameterTypes());
     }
 
-    Object resolve(Parameter parameter) {
+    Object resolve(Parameter parameter,Constructor<?> selectedConstructor) {
         var type = parameter.getType();
         var name = parameter.getName();
 
@@ -160,11 +161,13 @@ class InstanceContext {
 
         // Otherwise
         if (typeToNamedInstances.containsKey(type) && typeToNamedInstances.get(type).values().size() > 1) {
-            throw new RuntimeException("No unique candidate for %s available are %s".formatted(
+            throw new RuntimeException("No unique candidate for %s of constructor %s%savailable are %s".formatted(
                 asString(parameter),
+                asString(selectedConstructor),
+                System.lineSeparator(),
                 typeToNamedInstances.get(type).keySet()));
         } else {
-            throw new RuntimeException("No injection candidate for %s".formatted(asString(parameter)));
+            throw new RuntimeException("No injection candidate for %s of constructor %s".formatted(asString(parameter),asString(selectedConstructor)));
         }
     }
 
@@ -204,5 +207,14 @@ class ReflectionUtils {
 
     static String asString(Parameter parameter) {
         return "Parameter[%s %s]".formatted(parameter.getType().getSimpleName(), parameter.getName());
+    }
+
+    static String asString(Constructor<?> constructor) {
+        return "%s(%s)".formatted(
+            constructor.getDeclaringClass().getSimpleName(),
+            stream(constructor.getParameters())
+                .map(it -> "%s %s".formatted(it.getType().getSimpleName(), it.getName()))
+                .collect(Collectors.joining(", "))
+        );
     }
 }
