@@ -6,7 +6,7 @@ import java.lang.reflect.Field;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class InstanceContextFeedbackMessagesTest {
+public class WiringFeedbackMessagesTest extends FieldAccessor {
 
     private String someValue;
     private String anotherValue;
@@ -20,22 +20,24 @@ public class InstanceContextFeedbackMessagesTest {
     @Instance(parameterTypes = {Void.class})
     private MultiplePublicConstructorInstance noneAreMatching;
 
-    final InstanceContext context = new InstanceContext();
+    final WiringContext context = new WiringContext();
 
     @Test
     void feedbackMessage_noInjectionCandidateFound() {
         Field subjectField = declaredField("instantiatable");
         assertThatThrownBy(() -> context.instantiate(subjectField))
+            .isInstanceOf(WiringException.class)
             .hasMessage("No injection candidate for Parameter[String value] of constructor SinglePublicConstructorInstance(String value)");
     }
 
     @Test
     void feedbackMessage_noUniqueInjectionCandidateFound() {
-        context.registerInstance(declaredField("someValue"), "");
-        context.registerInstance(declaredField("anotherValue"), "");
+        context.register(declaredField("someValue"), "");
+        context.register(declaredField("anotherValue"), "");
 
         Field subjectField = declaredField("instantiatable");
         assertThatThrownBy(() -> context.instantiate(subjectField))
+            .isInstanceOf(WiringException.class)
             .hasMessage("%s%s%s".formatted(
                 "No unique candidate for Parameter[String value] of constructor SinglePublicConstructorInstance(String value)",
                 System.lineSeparator(),
@@ -47,6 +49,7 @@ public class InstanceContextFeedbackMessagesTest {
     void feedbackMessage_noPublicConstructorFoundForClass() {
         Field subjectField = declaredField("nonInstantiatable");
         assertThatThrownBy(() -> context.instantiate(subjectField))
+            .isInstanceOf(WiringException.class)
             .hasMessage("No public constructor to initialize Field[SinglePrivateConstructorInstance nonInstantiatable]");
     }
 
@@ -54,6 +57,7 @@ public class InstanceContextFeedbackMessagesTest {
     void feedbackMessage_noMatchingConstructorFoundForClass() {
         Field subjectField = declaredField("noneAreMatching");
         assertThatThrownBy(() -> context.instantiate(subjectField))
+            .isInstanceOf(WiringException.class)
             .hasMessage("No matching constructor to initialize Field[MultiplePublicConstructorInstance noneAreMatching]");
     }
 
@@ -70,14 +74,6 @@ public class InstanceContextFeedbackMessagesTest {
         }
 
         public MultiplePublicConstructorInstance(String value) {
-        }
-    }
-
-    private Field declaredField(String fieldName) {
-        try {
-            return this.getClass().getDeclaredField(fieldName);
-        } catch (NoSuchFieldException exception) {
-            throw new AssertionError("Expecting a field %s".formatted(fieldName));
         }
     }
 }

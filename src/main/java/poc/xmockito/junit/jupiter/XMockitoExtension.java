@@ -15,26 +15,24 @@ import static poc.xmockito.junit.jupiter.ReflectionUtils.*;
 
 public class XMockitoExtension implements BeforeEachCallback, AfterEachCallback {
 
-    private final InstanceContext context = new InstanceContext();
+    private final WiringContext context = new WiringContext();
 
     public void beforeEach(ExtensionContext context) {
         this.context.clear();
         Object testInstance = context.getTestInstance().get();
 
-        // Collect Naturals
-        for (Field collectedDependency : dependenciesToCollect(testInstance)) {
-            this.context.registerInstance(collectedDependency, extract(testInstance, collectedDependency));
+        // Collect Predefined
+        for (Field predefined : dependenciesToCollect(testInstance)) {
+            this.context.register(predefined, extract(testInstance, predefined));
         }
 
         // Create Mocks
-        for (Field mockedDependency : dependenciesToMock(testInstance)) {
-            this.context.registerInstance(mockedDependency, Mockito.mock(mockedDependency.getType()));
+        for (Field mocked : dependenciesToMock(testInstance)) {
+            this.context.register(mocked, Mockito.mock(mocked.getType()));
         }
 
         // Create Instances
-        for (Field field : dependenciesToInstantiate(testInstance)) {
-            this.context.registerInstance(field, this.context.instantiate(field));
-        }
+        this.context.wireInstances(dependenciesToInstantiate(testInstance));
 
         // Inject the created Mocks and Instances
         for (Field field : dependenciesToInject(testInstance)) {
@@ -63,7 +61,17 @@ public class XMockitoExtension implements BeforeEachCallback, AfterEachCallback 
     }
 }
 
-class InstanceContext {
+class WiringException extends RuntimeException {
+    public WiringException(String message) {
+        super(message);
+    }
+
+    public WiringException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+
+class WiringContext {
     private static final Object DEFINED_NULL = new Object() {
         @Override
         public String toString() {
@@ -76,7 +84,7 @@ class InstanceContext {
         typeToNamedInstances.clear();
     }
 
-    void registerInstance(Field field, Object instance) {
+    void register(Field field, Object instance) {
         typeToNamedInstances.putIfAbsent(field.getType(), new LinkedHashMap<>());
         typeToNamedInstances.get(field.getType()).put(field.getName(), wrapNullAsDefinedNull(instance));
     }
@@ -97,17 +105,25 @@ class InstanceContext {
         return unwrapDefinedNullToNull(typeToNamedInstances.get(type).values().iterator().next());
     }
 
+    boolean canInstantiate(Field field) {
+        return canResolveParameters(selectConstructor(field));
+    }
+
     Object instantiate(Field field) {
         try {
             Constructor<?> selectedConstructor = selectConstructor(field);
-            Object[] parameters = selectedParameters(selectedConstructor);
+            Object[] parameters = resolvedParameters(selectedConstructor);
             return selectedConstructor.newInstance(parameters);
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException("Unable to instantiate %s".formatted(asString(field)), e);
+            throw new WiringException("Unable to instantiate %s".formatted(asString(field)), e);
         }
     }
 
-    private Object[] selectedParameters(Constructor<?> selectedConstructor) {
+    private boolean canResolveParameters(Constructor<?> selectedConstructor) {
+        return stream(selectedConstructor.getParameters()).allMatch(this::canResolve);
+    }
+
+    private Object[] resolvedParameters(Constructor<?> selectedConstructor) {
         return stream(selectedConstructor.getParameters())
             .map(parameter -> resolve(parameter,selectedConstructor))
             .toArray();
@@ -115,13 +131,13 @@ class InstanceContext {
 
     private static Constructor<?> selectConstructor(Field dependency) {
         return selectCandidateConstructor(dependency)
-            .orElseThrow(() -> new RuntimeException("No matching constructor to initialize %s".formatted(asString(dependency))));
+            .orElseThrow(() -> new WiringException("No matching constructor to initialize %s".formatted(asString(dependency))));
     }
 
     private static Optional<Constructor<?>> selectCandidateConstructor(Field dependency) {
         var constructors = dependency.getType().getConstructors();
         if (constructors.length == 0) {
-            throw new RuntimeException("No public constructor to initialize %s".formatted(asString(dependency)));
+            throw new WiringException("No public constructor to initialize %s".formatted(asString(dependency)));
         }
 
         var constructorSelector = constructorSelector(constructors, dependency);
@@ -145,6 +161,13 @@ class InstanceContext {
         return it -> Arrays.equals(it.getParameterTypes(), annotation.parameterTypes());
     }
 
+    boolean canResolve(Parameter parameter) {
+        var type = parameter.getType();
+        var name = parameter.getName();
+
+        return isDefined(type, name) || isUniquelyDefined(type);
+    }
+
     Object resolve(Parameter parameter,Constructor<?> selectedConstructor) {
         var type = parameter.getType();
         var name = parameter.getName();
@@ -161,13 +184,41 @@ class InstanceContext {
 
         // Otherwise
         if (typeToNamedInstances.containsKey(type) && typeToNamedInstances.get(type).values().size() > 1) {
-            throw new RuntimeException("No unique candidate for %s of constructor %s%savailable are %s".formatted(
+            throw new WiringException("No unique candidate for %s of constructor %s%savailable are %s".formatted(
                 asString(parameter),
                 asString(selectedConstructor),
                 System.lineSeparator(),
                 typeToNamedInstances.get(type).keySet()));
         } else {
-            throw new RuntimeException("No injection candidate for %s of constructor %s".formatted(asString(parameter),asString(selectedConstructor)));
+            throw new WiringException("No injection candidate for %s of constructor %s".formatted(asString(parameter),asString(selectedConstructor)));
+        }
+    }
+
+    public void wireInstances(List<Field> fields) {
+        LinkedList<Field> fieldsToInstantiate = new LinkedList<>(fields);
+
+        int size;
+        do {
+            size = fieldsToInstantiate.size();
+            for (Iterator<Field> iterator = fieldsToInstantiate.iterator(); iterator.hasNext(); ) {
+                Field field = iterator.next();
+                if (this.canInstantiate(field)) {
+                    this.register(field, this.instantiate(field));
+                    iterator.remove();
+                }
+            }
+        } while (size > fieldsToInstantiate.size());
+
+        List<String> messages = new ArrayList<>();
+        for (Field field : fieldsToInstantiate) {
+            try {
+                this.instantiate(field);
+            } catch (WiringException e) {
+                messages.add(e.getMessage());
+            }
+        }
+        if (messages.size() > 0) {
+            throw new WiringException(messages.stream().collect(Collectors.joining(System.lineSeparator())));
         }
     }
 
