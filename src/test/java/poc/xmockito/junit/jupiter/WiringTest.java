@@ -23,7 +23,7 @@ public class WiringTest {
         private A a;
         private B b;
 
-        final WiringContext context = new WiringContext();
+        final WiringEngine context = new WiringEngine();
 
         @Test
         public void wiringDealsWithInstantiationOrder() {
@@ -46,13 +46,17 @@ public class WiringTest {
         public record P(Q q) {
         }
 
+        public record R(R r1, R r2) {
+        }
+
         private Q q;
         private P p;
+        private R r;
 
-        final WiringContext context = new WiringContext();
+        final WiringEngine context = new WiringEngine();
 
         @Test
-        public void wiringDealsWithCircularDependencies() {
+        public void feedbackMessage_includesAllConstructorsWithParameterWithoutAnInjectionCandidate() {
             Field q = declaredField("q");
             Field p = declaredField("p");
 
@@ -62,6 +66,17 @@ public class WiringTest {
                 "No injection candidate for Parameter[P p] of constructor Q(P p)",
                 "No injection candidate for Parameter[Q q] of constructor P(Q q)"
             );
+        }
+
+        @Test
+        public void feedbackMessage_includesAllParametersWithoutAnInjectionCandidate() {
+            Field r = declaredField("r");
+            assertThatThrownBy(() -> context.wireInstances(List.of(r)))
+                .isInstanceOf(WiringException.class)
+                .hasMessageContainingAll(
+                    "No injection candidate for Parameter[R r1] of constructor R(R r1, R r2)",
+                    "No injection candidate for Parameter[R r2] of constructor R(R r1, R r2)"
+                );
         }
     }
 }

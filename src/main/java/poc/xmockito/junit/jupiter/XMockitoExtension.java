@@ -5,17 +5,19 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.mockito.Mockito;
 
-import java.lang.reflect.*;
-import java.util.*;
-import java.util.function.Predicate;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Parameter;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
-import static poc.xmockito.junit.jupiter.ReflectionUtils.*;
+import static poc.xmockito.junit.jupiter.ReflectionUtils.extract;
+import static poc.xmockito.junit.jupiter.ReflectionUtils.inject;
 
 public class XMockitoExtension implements BeforeEachCallback, AfterEachCallback {
 
-    private final WiringContext context = new WiringContext();
+    private final WiringEngine context = new WiringEngine();
 
     public void beforeEach(ExtensionContext context) {
         this.context.clear();
@@ -71,168 +73,9 @@ class WiringException extends RuntimeException {
     }
 }
 
-class WiringContext {
-    private static final Object DEFINED_NULL = new Object() {
-        @Override
-        public String toString() {
-            return "NULL";
-        }
-    };
-    private final Map<Type, Map<String, Object>> typeToNamedInstances = new LinkedHashMap<>();
-
-    void clear() {
-        typeToNamedInstances.clear();
-    }
-
-    void register(Field field, Object instance) {
-        typeToNamedInstances.putIfAbsent(field.getType(), new LinkedHashMap<>());
-        typeToNamedInstances.get(field.getType()).put(field.getName(), wrapNullAsDefinedNull(instance));
-    }
-
-    private boolean isDefined(Class<?> type, String name) {
-        return typeToNamedInstances.containsKey(type) && typeToNamedInstances.get(type).containsKey(name);
-    }
-
-    Object lookup(Class<?> type, String name) {
-        return unwrapDefinedNullToNull(typeToNamedInstances.get(type).get(name));
-    }
-
-    private boolean isUniquelyDefined(Class<?> type) {
-        return typeToNamedInstances.containsKey(type) && typeToNamedInstances.get(type).values().size() == 1;
-    }
-
-    private Object lookupUnique(Class<?> type) {
-        return unwrapDefinedNullToNull(typeToNamedInstances.get(type).values().iterator().next());
-    }
-
-    boolean canInstantiate(Field field) {
-        return canResolveParameters(selectConstructor(field));
-    }
-
-    Object instantiate(Field field) {
-        try {
-            Constructor<?> selectedConstructor = selectConstructor(field);
-            Object[] parameters = resolvedParameters(selectedConstructor);
-            return selectedConstructor.newInstance(parameters);
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new WiringException("Unable to instantiate %s".formatted(asString(field)), e);
-        }
-    }
-
-    private boolean canResolveParameters(Constructor<?> selectedConstructor) {
-        return stream(selectedConstructor.getParameters()).allMatch(this::canResolve);
-    }
-
-    private Object[] resolvedParameters(Constructor<?> selectedConstructor) {
-        return stream(selectedConstructor.getParameters())
-            .map(parameter -> resolve(parameter,selectedConstructor))
-            .toArray();
-    }
-
-    private static Constructor<?> selectConstructor(Field dependency) {
-        return selectCandidateConstructor(dependency)
-            .orElseThrow(() -> new WiringException("No matching constructor to initialize %s".formatted(asString(dependency))));
-    }
-
-    private static Optional<Constructor<?>> selectCandidateConstructor(Field dependency) {
-        var constructors = dependency.getType().getConstructors();
-        if (constructors.length == 0) {
-            throw new WiringException("No public constructor to initialize %s".formatted(asString(dependency)));
-        }
-
-        var constructorSelector = constructorSelector(constructors, dependency);
-
-        return stream(constructors).filter(constructorSelector).findFirst();
-    }
-
-    private static Predicate<Constructor<?>> constructorSelector(Constructor<?>[] constructors, Field field) {
-        if (constructors.length == 1) {
-            return anyConstructor();
-        } else {
-            return constructorMatchingArguments(field.getAnnotation(Instance.class));
-        }
-    }
-
-    private static Predicate<Constructor<?>> anyConstructor() {
-        return it -> true;
-    }
-
-    private static Predicate<Constructor<?>> constructorMatchingArguments(Instance annotation) {
-        return it -> Arrays.equals(it.getParameterTypes(), annotation.parameterTypes());
-    }
-
-    boolean canResolve(Parameter parameter) {
-        var type = parameter.getType();
-        var name = parameter.getName();
-
-        return isDefined(type, name) || isUniquelyDefined(type);
-    }
-
-    Object resolve(Parameter parameter,Constructor<?> selectedConstructor) {
-        var type = parameter.getType();
-        var name = parameter.getName();
-
-        // Either a type, name combination is defined
-        if (isDefined(type, name)) {
-            return lookup(type, name);
-        }
-
-        // Or there exists a unique instance for the type
-        if (isUniquelyDefined(type)) {
-            return lookupUnique(type);
-        }
-
-        // Otherwise
-        if (typeToNamedInstances.containsKey(type) && typeToNamedInstances.get(type).values().size() > 1) {
-            throw new WiringException("No unique candidate for %s of constructor %s%savailable are %s".formatted(
-                asString(parameter),
-                asString(selectedConstructor),
-                System.lineSeparator(),
-                typeToNamedInstances.get(type).keySet()));
-        } else {
-            throw new WiringException("No injection candidate for %s of constructor %s".formatted(asString(parameter),asString(selectedConstructor)));
-        }
-    }
-
-    public void wireInstances(List<Field> fields) {
-        LinkedList<Field> fieldsToInstantiate = new LinkedList<>(fields);
-
-        int size;
-        do {
-            size = fieldsToInstantiate.size();
-            for (Iterator<Field> iterator = fieldsToInstantiate.iterator(); iterator.hasNext(); ) {
-                Field field = iterator.next();
-                if (this.canInstantiate(field)) {
-                    this.register(field, this.instantiate(field));
-                    iterator.remove();
-                }
-            }
-        } while (size > fieldsToInstantiate.size());
-
-        List<String> messages = new ArrayList<>();
-        for (Field field : fieldsToInstantiate) {
-            try {
-                this.instantiate(field);
-            } catch (WiringException e) {
-                messages.add(e.getMessage());
-            }
-        }
-        if (messages.size() > 0) {
-            throw new WiringException(messages.stream().collect(Collectors.joining(System.lineSeparator())));
-        }
-    }
-
-    private static Object wrapNullAsDefinedNull(Object instance) {
-        return instance == null ? DEFINED_NULL : instance;
-    }
-
-    private static Object unwrapDefinedNullToNull(Object instance) {
-        return instance == DEFINED_NULL ? null : instance;
-    }
-}
-
 class ReflectionUtils {
-    private ReflectionUtils() {}
+    private ReflectionUtils() {
+    }
 
     static Object extract(Object instance, Field field) {
         try {
