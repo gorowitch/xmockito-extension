@@ -1,7 +1,10 @@
-package poc.xmockito.junit.jupiter;
+package poc.xmockito.junit.jupiter.internal;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import poc.xmockito.junit.jupiter.FieldAccessor;
+import poc.xmockito.junit.jupiter.internal.WiringEngine;
+import poc.xmockito.junit.jupiter.internal.WiringException;
 
 import java.lang.reflect.Field;
 import java.util.List;

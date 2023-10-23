@@ -1,11 +1,11 @@
-package poc.xmockito.junit.jupiter;
+package poc.xmockito.junit.jupiter.internal;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static poc.xmockito.junit.jupiter.ReflectionUtils.asString;
+
 
 
 abstract sealed class InstantiationResult permits InstanceCreated, InstanceCreationFailed {
@@ -40,7 +40,7 @@ final class InstanceCreationFailed extends InstantiationResult {
     }
 
     String message() {
-        StringBuilder builder = new StringBuilder("%s -> %s".formatted(asString(field), constructorResult.message()));
+        StringBuilder builder = new StringBuilder("%s -> %s".formatted(ReflectionUtils.asString(field), constructorResult.message()));
 
         if (someParametersUnresolved != null) {
             builder.append(System.lineSeparator());
@@ -67,7 +67,7 @@ final class ConstructorSelected extends ConstructorResult {
 
     @Override
     String message() {
-        return "new " + asString(constructor);
+        return "new " + ReflectionUtils.asString(constructor);
     }
 }
 
@@ -93,7 +93,7 @@ final class ConstructorNotFound extends ConstructorResult {
             builder.append(System.lineSeparator());
             builder.append("\tavailable candidates are:");
             builder.append(System.lineSeparator());
-            builder.append(constructors.stream().map(it -> "\t\t" + asString(it)).collect(Collectors.joining(System.lineSeparator())));
+            builder.append(constructors.stream().map(it -> "\t\t" + ReflectionUtils.asString(it)).collect(Collectors.joining(System.lineSeparator())));
         }
 
         return builder.toString();

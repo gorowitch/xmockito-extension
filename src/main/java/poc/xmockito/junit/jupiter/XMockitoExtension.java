@@ -4,16 +4,14 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.mockito.Mockito;
+import poc.xmockito.junit.jupiter.internal.WiringEngine;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.Parameter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
-import static poc.xmockito.junit.jupiter.ReflectionUtils.extract;
-import static poc.xmockito.junit.jupiter.ReflectionUtils.inject;
+import static poc.xmockito.junit.jupiter.internal.ReflectionUtils.extract;
+import static poc.xmockito.junit.jupiter.internal.ReflectionUtils.inject;
 
 public class XMockitoExtension implements BeforeEachCallback, AfterEachCallback {
 

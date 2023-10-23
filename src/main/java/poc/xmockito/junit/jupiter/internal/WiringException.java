@@ -1,4 +1,4 @@
-package poc.xmockito.junit.jupiter;
+package poc.xmockito.junit.jupiter.internal;
 
 class WiringException extends RuntimeException {
     public WiringException(String message) {

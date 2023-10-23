@@ -1,6 +1,11 @@
-package poc.xmockito.junit.jupiter;
+package poc.xmockito.junit.jupiter.internal;
 
 import org.junit.jupiter.api.Test;
+import poc.xmockito.junit.jupiter.FieldAccessor;
+import poc.xmockito.junit.jupiter.Instance;
+import poc.xmockito.junit.jupiter.internal.InstanceCreationFailed;
+import poc.xmockito.junit.jupiter.internal.InstantiationResult;
+import poc.xmockito.junit.jupiter.internal.WiringEngine;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;

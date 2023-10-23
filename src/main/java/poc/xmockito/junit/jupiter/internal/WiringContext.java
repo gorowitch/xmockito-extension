@@ -1,4 +1,4 @@
-package poc.xmockito.junit.jupiter;
+package poc.xmockito.junit.jupiter.internal;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;

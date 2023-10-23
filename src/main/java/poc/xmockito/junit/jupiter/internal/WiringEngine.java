@@ -1,4 +1,6 @@
-package poc.xmockito.junit.jupiter;
+package poc.xmockito.junit.jupiter.internal;
+
+import poc.xmockito.junit.jupiter.Instance;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -12,10 +14,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
-import static poc.xmockito.junit.jupiter.MultipleParametersResult.combine;
-import static poc.xmockito.junit.jupiter.ReflectionUtils.asString;
-import static poc.xmockito.junit.jupiter.SingleParameterResolution.resolved;
-import static poc.xmockito.junit.jupiter.SingleParameterResolution.unresolved;
+import static poc.xmockito.junit.jupiter.internal.MultipleParametersResult.combine;
+import static poc.xmockito.junit.jupiter.internal.SingleParameterResolution.resolved;
+import static poc.xmockito.junit.jupiter.internal.SingleParameterResolution.unresolved;
 
 public class WiringEngine {
     private final WiringContext context = new WiringContext();
@@ -25,11 +26,11 @@ public class WiringEngine {
     }
 
     public void register(Field predefined, Object extract) {
-        context.register(predefined,extract);
+        context.register(predefined, extract);
     }
 
     public Object lookup(Class<?> type, String name) {
-        return context.lookup(type,name);
+        return context.lookup(type, name);
     }
 
     public void wireInstances(List<Field> fields) {
@@ -73,7 +74,7 @@ public class WiringEngine {
                 try {
                     return new InstanceCreated(selectedConstructor.newInstance(allResolved.parameters()));
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                    throw new WiringException("Unable to instantiate %s".formatted(asString(field)), e);
+                    throw new WiringException("Unable to instantiate %s".formatted(ReflectionUtils.asString(field)), e);
                 }
             }
             if (resolution instanceof SomeParametersUnresolved someUnresolved) {
@@ -82,7 +83,7 @@ public class WiringEngine {
             throw new IllegalStateException();
         }
         if (constructorResolution instanceof ConstructorNotFound unresolved) {
-            return new InstanceCreationFailed(field,unresolved);
+            return new InstanceCreationFailed(field, unresolved);
         }
         throw new IllegalStateException();
     }
@@ -132,14 +133,14 @@ public class WiringEngine {
                 yield unresolved(
                     "No unique candidate for %s%s\t\tavailable candidates are %s"
                         .formatted(
-                            asString(parameter),
+                            ReflectionUtils.asString(parameter),
                             System.lineSeparator(),
                             context.lookupNamesFor(type)));
             }
             case UNDEFINED -> {
                 yield unresolved(
                     "No injection candidate for %s"
-                        .formatted(asString(parameter)));
+                        .formatted(ReflectionUtils.asString(parameter)));
             }
         };
     }

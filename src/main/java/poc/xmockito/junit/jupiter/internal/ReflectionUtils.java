@@ -1,4 +1,4 @@
-package poc.xmockito.junit.jupiter;
+package poc.xmockito.junit.jupiter.internal;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -7,11 +7,11 @@ import java.util.stream.Collectors;
 
 import static java.util.Arrays.stream;
 
-class ReflectionUtils {
+public class ReflectionUtils {
     private ReflectionUtils() {
     }
 
-    static Object extract(Object instance, Field field) {
+    public static Object extract(Object instance, Field field) {
         try {
             field.setAccessible(true);
             return field.get(instance);
@@ -20,7 +20,7 @@ class ReflectionUtils {
         }
     }
 
-    static void inject(Object instance, Field field, Object value) {
+    public static void inject(Object instance, Field field, Object value) {
         try {
             field.setAccessible(true);
             field.set(instance, value);
