@@ -63,8 +63,9 @@ public class WiringTest {
             assertThatThrownBy(() -> context.wireInstances(List.of(q, p)))
                 .isInstanceOf(WiringException.class)
                 .hasMessageContainingAll(
-                "No injection candidate for Parameter[P p] of constructor Q(P p)",
-                "No injection candidate for Parameter[Q q] of constructor P(Q q)"
+                    "Field[Q q] -> new Q(P p)",
+                "No injection candidate for Parameter[P p]",
+                "No injection candidate for Parameter[Q q]"
             );
         }
 
@@ -74,8 +75,9 @@ public class WiringTest {
             assertThatThrownBy(() -> context.wireInstances(List.of(r)))
                 .isInstanceOf(WiringException.class)
                 .hasMessageContainingAll(
-                    "No injection candidate for Parameter[R r1] of constructor R(R r1, R r2)",
-                    "No injection candidate for Parameter[R r2] of constructor R(R r1, R r2)"
+                    "Field[R r] -> new R(R r1, R r2)",
+                    "No injection candidate for Parameter[R r1]",
+                    "No injection candidate for Parameter[R r2]"
                 );
         }
     }

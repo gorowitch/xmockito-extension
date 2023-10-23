@@ -3,6 +3,8 @@ package poc.xmockito.junit.jupiter;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,8 +30,11 @@ public class WiringFeedbackMessagesTest extends FieldAccessor {
 
         InstantiationResult result = context.instantiate(subjectField);
         assertThat(result).isInstanceOf(InstanceCreationFailed.class);
-        assertThat(((InstanceCreationFailed)result).message())
-            .isEqualTo("No injection candidate for Parameter[String value] of constructor SinglePublicConstructorInstance(String value)");
+        assertThat(((InstanceCreationFailed) result).message())
+            .isEqualTo(lines(
+                "Field[SinglePublicConstructorInstance instantiatable] -> new SinglePublicConstructorInstance(String value)",
+                "\tNo injection candidate for Parameter[String value]"
+            ));
     }
 
     @Test
@@ -41,11 +46,11 @@ public class WiringFeedbackMessagesTest extends FieldAccessor {
 
         InstantiationResult result = context.instantiate(subjectField);
         assertThat(result).isInstanceOf(InstanceCreationFailed.class);
-        assertThat(((InstanceCreationFailed)result).message())
-            .isEqualTo("%s%s%s".formatted(
-                "No unique candidate for Parameter[String value] of constructor SinglePublicConstructorInstance(String value)",
-                System.lineSeparator(),
-                "available are [someValue, anotherValue]"
+        assertThat(((InstanceCreationFailed) result).message())
+            .isEqualTo(lines(
+                "Field[SinglePublicConstructorInstance instantiatable] -> new SinglePublicConstructorInstance(String value)",
+                "\tNo unique candidate for Parameter[String value]",
+                "\t\tavailable candidates are [someValue, anotherValue]"
             ));
     }
 
@@ -55,8 +60,10 @@ public class WiringFeedbackMessagesTest extends FieldAccessor {
 
         InstantiationResult result = context.instantiate(subjectField);
         assertThat(result).isInstanceOf(InstanceCreationFailed.class);
-        assertThat(((InstanceCreationFailed)result).message())
-            .isEqualTo("No public constructor to initialize Field[SinglePrivateConstructorInstance nonInstantiatable]");
+        assertThat(((InstanceCreationFailed) result).message())
+            .isEqualTo(lines(
+                "Field[SinglePrivateConstructorInstance nonInstantiatable] -> No public constructor found"
+            ));
     }
 
     @Test
@@ -65,8 +72,13 @@ public class WiringFeedbackMessagesTest extends FieldAccessor {
 
         InstantiationResult result = context.instantiate(subjectField);
         assertThat(result).isInstanceOf(InstanceCreationFailed.class);
-        assertThat(((InstanceCreationFailed)result).message())
-            .isEqualTo("No matching constructor to initialize Field[MultiplePublicConstructorInstance noneAreMatching]");
+        assertThat(((InstanceCreationFailed) result).message())
+            .isEqualTo(lines(
+                "Field[MultiplePublicConstructorInstance noneAreMatching] -> No matching constructor found",
+                "\tavailable candidates are:",
+                "\t\tMultiplePublicConstructorInstance(Integer arg0)",
+                "\t\tMultiplePublicConstructorInstance(String arg0)"
+            ));
     }
 
     public record SinglePublicConstructorInstance(String value) {
@@ -83,5 +95,9 @@ public class WiringFeedbackMessagesTest extends FieldAccessor {
 
         public MultiplePublicConstructorInstance(String value) {
         }
+    }
+
+    private static String lines(String... lines) {
+        return Arrays.stream(lines).collect(Collectors.joining(System.lineSeparator()));
     }
 }

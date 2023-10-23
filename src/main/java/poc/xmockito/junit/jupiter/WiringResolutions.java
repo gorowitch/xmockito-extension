@@ -1,8 +1,11 @@
 package poc.xmockito.junit.jupiter;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static poc.xmockito.junit.jupiter.ReflectionUtils.asString;
 
 
 abstract sealed class InstantiationResult permits InstanceCreated, InstanceCreationFailed {
@@ -21,22 +24,34 @@ final class InstanceCreated extends InstantiationResult {
 }
 
 final class InstanceCreationFailed extends InstantiationResult {
-    private final String message;
+    private final Field field;
+    private ConstructorResult constructorResult;
+    private SomeParametersUnresolved someParametersUnresolved;
 
-    InstanceCreationFailed(SomeParametersUnresolved someParametersUnresolved) {
-        this.message = someParametersUnresolved.message();
+    InstanceCreationFailed(Field field, ConstructorSelected constructorSelected, SomeParametersUnresolved someParametersUnresolved) {
+        this.field = field;
+        this.constructorResult = constructorSelected;
+        this.someParametersUnresolved = someParametersUnresolved;
     }
 
-    InstanceCreationFailed(ConstructorNotFound cause) {
-        this.message = cause.message();
+    InstanceCreationFailed(Field field, ConstructorNotFound constructorNotFound) {
+        this.field = field;
+        this.constructorResult = constructorNotFound;
     }
 
     String message() {
-        return message;
+        StringBuilder builder = new StringBuilder("%s -> %s".formatted(asString(field), constructorResult.message()));
+
+        if (someParametersUnresolved != null) {
+            builder.append(System.lineSeparator());
+            builder.append(someParametersUnresolved.message());
+        }
+        return builder.toString();
     }
 }
 
 abstract sealed class ConstructorResult permits ConstructorSelected, ConstructorNotFound {
+    abstract String message();
 }
 
 final class ConstructorSelected extends ConstructorResult {
@@ -50,17 +65,38 @@ final class ConstructorSelected extends ConstructorResult {
         return this.constructor;
     }
 
+    @Override
+    String message() {
+        return "new " + asString(constructor);
+    }
 }
 
 final class ConstructorNotFound extends ConstructorResult {
+    private final List<Constructor<?>> constructors;
     private final String message;
 
-    ConstructorNotFound(String errorMessage) {
-        this.message = errorMessage;
+    ConstructorNotFound() {
+        this.constructors = List.of();
+        this.message = "No public constructor found";
+    }
+
+    ConstructorNotFound(List<Constructor<?>> constructors) {
+        this.constructors = constructors;
+        this.message = "No matching constructor found";
     }
 
     String message() {
-        return message;
+        StringBuilder builder = new StringBuilder();
+        builder.append(this.message);
+
+        if (!constructors.isEmpty()) {
+            builder.append(System.lineSeparator());
+            builder.append("\tavailable candidates are:");
+            builder.append(System.lineSeparator());
+            builder.append(constructors.stream().map(it -> "\t\t" + asString(it)).collect(Collectors.joining(System.lineSeparator())));
+        }
+
+        return builder.toString();
     }
 }
 
@@ -103,7 +139,7 @@ final class SomeParametersUnresolved extends MultipleParametersResult {
     }
 
     String message() {
-        return unresolvedParameters.stream().map(ParameterUnresolved::message).collect(Collectors.joining(System.lineSeparator()));
+        return unresolvedParameters.stream().map(parameterUnresolved -> "\t" + parameterUnresolved.message()).collect(Collectors.joining(System.lineSeparator()));
     }
 }
 
