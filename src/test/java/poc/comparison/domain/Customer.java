@@ -1,4 +1,4 @@
-package poc.xmockito.example.domain;
+package poc.comparison.domain;
 
 import java.util.UUID;
 

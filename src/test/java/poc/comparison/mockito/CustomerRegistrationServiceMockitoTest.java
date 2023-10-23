@@ -1,12 +1,14 @@
-package poc.xmockito.example.domain;
+package poc.comparison.mockito;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Spy;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
-import poc.xmockito.junit.jupiter.Instance;
-import poc.xmockito.junit.jupiter.Mock;
-import poc.xmockito.junit.jupiter.XMockitoExtension;
+import poc.comparison.domain.*;
 
 import java.util.Optional;
 
@@ -16,18 +18,21 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(XMockitoExtension.class)
-public class CustomerRegistrationServiceTest {
-    EmailAddressValidator emailAddressValidator = new EmailAddressValidator();
+@ExtendWith(MockitoExtension.class)
+public class CustomerRegistrationServiceMockitoTest {
 
-    MailComposer mailComposer = new MailComposer();
+    @Spy
+    EmailAddressValidator emailAddressValidator;
+
+    @Spy
+    MailComposer mailComposer;
 
     @Mock
     CustomerRepository repository;
     @Mock
     MailSender mailSender;
 
-    @Instance
+    @InjectMocks
     CustomerRegistrationService service;
 
     @Test

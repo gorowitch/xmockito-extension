@@ -1,4 +1,4 @@
-package poc.xmockito.example.domain;
+package poc.comparison.domain;
 
 public class MailComposer {
     public MailMessage generateWelcomeMail(Customer customer) {

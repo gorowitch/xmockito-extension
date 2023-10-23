@@ -1,9 +1,9 @@
-package poc.xmockito.example.domain;
+package poc.comparison.domain;
 
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-class EmailAddressValidator {
+public class EmailAddressValidator {
     private final Predicate<String> IS_EMAIL = Pattern.compile("^(.+)@(.+)$").asMatchPredicate();
 
     void validate(String emailAddress) {

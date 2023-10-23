@@ -1,4 +1,4 @@
-package poc.xmockito.example.domain;
+package poc.comparison.domain;
 
 public interface MailSender {
     void send(MailMessage message);

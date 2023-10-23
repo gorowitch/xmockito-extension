@@ -1,4 +1,4 @@
-package poc.mockito.comparison;
+package poc.comparison.mockito;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
